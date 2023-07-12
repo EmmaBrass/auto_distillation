@@ -9,7 +9,8 @@ from heinsight.liquidlevel.track_tolerance_levels import \
 # main TODO
 # Play with iControl to find a method to detect when an experiment has ended
 # Test out with pic from the side... how to not get the line of muck?
-# Submit a ticket for getting the ethernet port opened...
+# Submit a ticket for getting the ethernet port opened...#
+# learn about how those main opencv methods work
 
 # Things I could add to improve HeinSight:
 # Parallax error correction
@@ -31,7 +32,7 @@ def take_then_put(distill_temp, distill_volumes, add_volume, threshold):
     #  Create and start an iControl experiment that stirs and heats the reaction mixture
     clr._create_experiment(f"take {distill_volumes}")
     clr._add_stirring_step(400,20)
-    clr._add_temperature_step(distill_temp, 'Tj')
+    clr._add_temperature_step(distill_temp, 5, 'Tj')
     clr._add_waiting_step(100000) # wait for a long time - exp should not end
     clr.start()
 
