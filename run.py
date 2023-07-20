@@ -10,7 +10,6 @@ from heinsight.liquidlevel.track_tolerance_levels import \
 # Play with iControl to find a method to detect when an experiment has ended
 # learn about how those main opencv methods work
 
-
 # Things I could add to improve HeinSight:
 # Parallax error correction
 # Ability to also look at color and take that into account when deciding on the liquid level
@@ -37,34 +36,50 @@ def take_then_put(distill_temp, distill_volumes, add_volume, threshold=0.01):
     """
 
     #  Create and start an iControl experiment that stirs and heats the reaction mixture
+    print("creating experiment")
     clr._create_experiment(f"take {distill_volumes}")
     clr._click_phase_1()
-    clr._add_stirring_step(400,20)
-    clr._add_temperature_step(distill_temp, 5, 'Tj')
+    #clr._add_stirring_step(400,20)
+    #clr._add_temperature_step(distill_temp, 5, 'Tj')
     clr._add_waiting_step(35000) # wait for a long time - exp should not end
+    print("starting experiment")
     clr.start()
 
     # Every 30 seconds, pause the experiment, and run liquid_level analysis
     while True:
-        time.sleep(45)
-        clr.pause() # pause the experiment to pause stirring
+        time.sleep(5)
+        print("pausing stirring")
+        clr.set_stirrer_live(0) # pause stirring
         time.sleep(5) # wait a few seconds for liquid level to settle
+        print("taking picture")
         _, image = cap.read() # take a picture with the camera
         image = resize(image)
-        clr.start() # resume the experiment
-        _, percent_diff = liquid_level.run(image=image, volume=distill_volumes)  # will return % diff from volume ref line specified
+        print("resuming stirring")
+        clr.set_stirrer_live(400) # resume stirring
+        print("running analysis")
+        _, percent_diff = liquid_level.run(image=image, volume=str(distill_volumes))  # will return % diff from volume ref line specified
         if percent_diff < threshold:
+            print("percent diff is less than threshold, moving on to adding solvent")
             clr.stop()
             break # leave the while loop
 
     #  Create and start an iControl experiment that adds solvent
+    print("creating experiment to add solvent")
     clr._create_experiment(f"put {add_volume} ml")
     clr._click_phase_1()
     clr._add_stirring_step(400,20)
     clr._add_dosing_step(add_volume)
+    clr._add_end_experiment_step()
     clr.start()
 
-    # TODO Need a way here to know if the experiment has completed!!!
+    # check if the experiment has ended every 30 sec
+    while True:
+        time.sleep(30)
+        print("checking if experiment has ended")
+        ended = clr.end_of_experiment_check()
+        if ended == True:
+            print("experiment has ended")
+            break
 
 def take(distill_temp, distill_volumes, threshold=0.01):
     """
@@ -78,6 +93,7 @@ def take(distill_temp, distill_volumes, threshold=0.01):
     """
 
     #  Create and start an iControl experiment that stirs and heats the reaction mixture
+    print("creating experiment")
     clr._create_experiment(f"take {distill_volumes}")
     clr._click_phase_1()
     clr._add_stirring_step(400,20)
@@ -87,14 +103,19 @@ def take(distill_temp, distill_volumes, threshold=0.01):
 
     # Every 30 seconds, pause the experiment, and run liquid_level analysis
     while True:
-        time.sleep(45)
-        clr.pause() # pause the experiment to pause stirring
+        time.sleep(5)
+        print("pausing stirring")
+        clr.set_stirrer_live(0) # pause stirring
         time.sleep(5) # wait a few seconds for liquid level to settle
+        print("taking picture")
         _, image = cap.read() # take a picture with the camera
         image = resize(image)
-        clr.start() # resume the experiment
-        _, percent_diff = liquid_level.run(image=image, volume=distill_volumes)  # will return % diff from volume ref line specified
+        print("resuming stirring")
+        clr.set_stirrer_live(400) # resume stirring
+        print("running analysis")
+        _, percent_diff = liquid_level.run(image=image, volume=str(distill_volumes))  # will return % diff from volume ref line specified
         if percent_diff < threshold:
+            print("percent diff is less than threshold, stopping experiment")
             clr.stop()
             break # leave the while loop
 
@@ -113,9 +134,9 @@ liquid_level = LiquidLevel(
     track_liquid_tolerance_levels=tracker,
     use_tolerance=False,
     use_reference=True,
-    rows_to_count=25,
+    rows_to_count=15,
     number_of_liquid_levels_to_find=1,
-    find_meniscus_minimum=0.03,
+    find_meniscus_minimum=0.04,
     no_error=False,
     liquid_level_data_save_folder=os.path.join(os.path.abspath(os.path.curdir),'logs')
     )  
@@ -124,25 +145,19 @@ liquid_level = LiquidLevel(
 _, image = cap.read() # take a picture with the camera
 image = resize(image)
 liquid_level.start(image=image, select_region_of_interest=True, set_reference=True, 
-    volumes_list = [3.5, 4, 6], select_tolerance=False)
+    volumes_list = ['3.5', '4', '6'], select_tolerance=False)
 
 take_then_put(25, 3.5, 54)
 take_then_put(30, 4, 54)
 take_then_put(35, 4, 54)
 take(35, 6)
+
 # Initial step of user setting the desired volune levels
 # Save these as a dict
 # User sets order to assess... e.g. first step is wait until at 4 vols
 
-
 # use experiment pause method to pause, take a pic, analyse, then resume!
 
-
-
-
 # will return % diff from volumes lines at 3.5, 4 and 6 volumes in the order specified in the start method
-
-# run method should only take ONE reference level as input -> whereas start should be allowed to use several.
-
 
 
