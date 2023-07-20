@@ -8,9 +8,8 @@ from heinsight.liquidlevel.track_tolerance_levels import \
 
 # main TODO
 # Play with iControl to find a method to detect when an experiment has ended
-# Test out with pic from the side... how to not get the line of muck?
-# Submit a ticket for getting the ethernet port opened...#
 # learn about how those main opencv methods work
+
 
 # Things I could add to improve HeinSight:
 # Parallax error correction
@@ -18,7 +17,15 @@ from heinsight.liquidlevel.track_tolerance_levels import \
 # Ability to read text labels stuck on the vessel (or even like the vol labels that come printed on some vessels) and find ref level from them
 # Ability to report back absolute volume difference rather than just htis arbitrary % diff...
 
-def take_then_put(distill_temp, distill_volumes, add_volume, threshold):
+def resize(input_image):
+    h, w = input_image.shape[:2]
+    aspect = h/w
+    new_width = 600
+    new_height = int(new_width*aspect)
+    output_image = cv2.resize(input_image, dsize=(new_width,new_height))
+    return output_image
+
+def take_then_put(distill_temp, distill_volumes, add_volume, threshold=0.01):
     """
     Distill down to a pre-defined number of volumes and then add more solvent.
     Note that liquid level start method should have been called before this method is run.
@@ -31,9 +38,10 @@ def take_then_put(distill_temp, distill_volumes, add_volume, threshold):
 
     #  Create and start an iControl experiment that stirs and heats the reaction mixture
     clr._create_experiment(f"take {distill_volumes}")
+    clr._click_phase_1()
     clr._add_stirring_step(400,20)
     clr._add_temperature_step(distill_temp, 5, 'Tj')
-    clr._add_waiting_step(100000) # wait for a long time - exp should not end
+    clr._add_waiting_step(35000) # wait for a long time - exp should not end
     clr.start()
 
     # Every 30 seconds, pause the experiment, and run liquid_level analysis
@@ -41,15 +49,17 @@ def take_then_put(distill_temp, distill_volumes, add_volume, threshold):
         time.sleep(45)
         clr.pause() # pause the experiment to pause stirring
         time.sleep(5) # wait a few seconds for liquid level to settle
-        image = cv2...... # take a picture with the camera
+        _, image = cap.read() # take a picture with the camera
+        image = resize(image)
         clr.start() # resume the experiment
         _, percent_diff = liquid_level.run(image=image, volume=distill_volumes)  # will return % diff from volume ref line specified
         if percent_diff < threshold:
-            clr.end()
+            clr.stop()
             break # leave the while loop
 
     #  Create and start an iControl experiment that adds solvent
     clr._create_experiment(f"put {add_volume} ml")
+    clr._click_phase_1()
     clr._add_stirring_step(400,20)
     clr._add_dosing_step(add_volume)
     clr.start()
@@ -69,9 +79,10 @@ def take(distill_temp, distill_volumes, threshold=0.01):
 
     #  Create and start an iControl experiment that stirs and heats the reaction mixture
     clr._create_experiment(f"take {distill_volumes}")
+    clr._click_phase_1()
     clr._add_stirring_step(400,20)
-    clr._add_temperature_step(distill_temp, 'Tj')
-    clr._add_waiting_step(600000) # wait for a long time - exp should not end
+    clr._add_temperature_step(distill_temp, 5, 'Tj')
+    clr._add_waiting_step(35000) # wait for a long time - exp should not end
     clr.start()
 
     # Every 30 seconds, pause the experiment, and run liquid_level analysis
@@ -79,11 +90,12 @@ def take(distill_temp, distill_volumes, threshold=0.01):
         time.sleep(45)
         clr.pause() # pause the experiment to pause stirring
         time.sleep(5) # wait a few seconds for liquid level to settle
-        image = cv2...... # take a picture with the camera
+        _, image = cap.read() # take a picture with the camera
+        image = resize(image)
         clr.start() # resume the experiment
         _, percent_diff = liquid_level.run(image=image, volume=distill_volumes)  # will return % diff from volume ref line specified
         if percent_diff < threshold:
-            clr.end()
+            clr.stop()
             break # leave the while loop
 
 
@@ -93,7 +105,7 @@ clr.simulation = False
 clr._test_exe_path()
 clr.initialize_device()
 
-# TODO set up camera 
+cap = cv2.VideoCapture("rtsp://admin:Reolink5@10.236.65.56:554/h264Preview_01_main")
 
 tracker = TrackTwoLiquidToleranceLevels()
 liquid_level = LiquidLevel(
@@ -109,14 +121,15 @@ liquid_level = LiquidLevel(
     )  
 
 # image for initial selection of region of interest
-image = cv2.imread("/Users/Emma/Documents/Documents - MacBook Pro/Liverpool PhD/Code/auto_distillation/media/test3.jpg")
+_, image = cap.read() # take a picture with the camera
+image = resize(image)
 liquid_level.start(image=image, select_region_of_interest=True, set_reference=True, 
     volumes_list = [3.5, 4, 6], select_tolerance=False)
 
-take_then_put(95, 3.5, 54)
-take_then_put(105, 4, 54)
-take_then_put(115, 4, 54)
-take(115, 6)
+take_then_put(25, 3.5, 54)
+take_then_put(30, 4, 54)
+take_then_put(35, 4, 54)
+take(35, 6)
 # Initial step of user setting the desired volune levels
 # Save these as a dict
 # User sets order to assess... e.g. first step is wait until at 4 vols
