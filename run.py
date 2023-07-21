@@ -6,9 +6,10 @@ from heinsight.liquidlevel.liquid_level import LiquidLevel
 from heinsight.liquidlevel.track_tolerance_levels import \
     TrackLiquidToleranceLevels, TrackOneLiquidToleranceLevel, TrackTwoLiquidToleranceLevels
 
+
 # main TODO
 # Play with iControl to find a method to detect when an experiment has ended
-# learn about how those main opencv methods work
+# Learn about how those main opencv methods work
 
 # Things I could add to improve HeinSight:
 # Parallax error correction
@@ -24,7 +25,7 @@ def resize(input_image):
     output_image = cv2.resize(input_image, dsize=(new_width,new_height))
     return output_image
 
-def take_then_put(distill_temp, distill_volumes, add_volume, threshold=0.01):
+def take_then_put(distill_temp, distill_volumes, add_volume, iterator, threshold=0.01):
     """
     Distill down to a pre-defined number of volumes and then add more solvent.
     Note that liquid level start method should have been called before this method is run.
@@ -37,17 +38,17 @@ def take_then_put(distill_temp, distill_volumes, add_volume, threshold=0.01):
 
     #  Create and start an iControl experiment that stirs and heats the reaction mixture
     print("creating experiment")
-    clr._create_experiment(f"take {distill_volumes}")
+    clr._create_experiment(f"take {distill_volumes} {iterator}")
     clr._click_phase_1()
-    #clr._add_stirring_step(400,20)
-    #clr._add_temperature_step(distill_temp, 5, 'Tj')
+    clr._add_stirring_step(400,20)
+    clr._add_temperature_step(distill_temp, 5, 'Tj')
     clr._add_waiting_step(35000) # wait for a long time - exp should not end
     print("starting experiment")
     clr.start()
 
-    # Every 30 seconds, pause the experiment, and run liquid_level analysis
+    # Every 45 seconds, pause the experiment, and run liquid_level analysis
     while True:
-        time.sleep(5)
+        time.sleep(45)
         print("pausing stirring")
         clr.set_stirrer_live(0) # pause stirring
         time.sleep(5) # wait a few seconds for liquid level to settle
@@ -61,11 +62,12 @@ def take_then_put(distill_temp, distill_volumes, add_volume, threshold=0.01):
         if percent_diff < threshold:
             print("percent diff is less than threshold, moving on to adding solvent")
             clr.stop()
+            time.sleep
             break # leave the while loop
 
     #  Create and start an iControl experiment that adds solvent
     print("creating experiment to add solvent")
-    clr._create_experiment(f"put {add_volume} ml")
+    clr._create_experiment(f"put {add_volume} ml {iterator}")
     clr._click_phase_1()
     clr._add_stirring_step(400,20)
     clr._add_dosing_step(add_volume)
@@ -81,7 +83,9 @@ def take_then_put(distill_temp, distill_volumes, add_volume, threshold=0.01):
             print("experiment has ended")
             break
 
-def take(distill_temp, distill_volumes, threshold=0.01):
+    iterator +=1
+
+def take(distill_temp, distill_volumes, iterator, threshold=0.01):
     """
     Distill down to a pre-defined number of volumes and then add more solvent.
     Note that liquid level start method should have been called before this method is run.
@@ -94,16 +98,16 @@ def take(distill_temp, distill_volumes, threshold=0.01):
 
     #  Create and start an iControl experiment that stirs and heats the reaction mixture
     print("creating experiment")
-    clr._create_experiment(f"take {distill_volumes}")
+    clr._create_experiment(f"take {distill_volumes} {iterator}")
     clr._click_phase_1()
     clr._add_stirring_step(400,20)
     clr._add_temperature_step(distill_temp, 5, 'Tj')
     clr._add_waiting_step(35000) # wait for a long time - exp should not end
     clr.start()
 
-    # Every 30 seconds, pause the experiment, and run liquid_level analysis
+    # Every 45 seconds, pause the experiment, and run liquid_level analysis
     while True:
-        time.sleep(5)
+        time.sleep(45)
         print("pausing stirring")
         clr.set_stirrer_live(0) # pause stirring
         time.sleep(5) # wait a few seconds for liquid level to settle
@@ -118,6 +122,8 @@ def take(distill_temp, distill_volumes, threshold=0.01):
             print("percent diff is less than threshold, stopping experiment")
             clr.stop()
             break # leave the while loop
+
+    iterator += 1
 
 
 clr = Optimax(device_name="radleys_clr", port="COMX", connection_mode="serial", address="00", experiment_name="test1")
@@ -147,10 +153,12 @@ image = resize(image)
 liquid_level.start(image=image, select_region_of_interest=True, set_reference=True, 
     volumes_list = ['3.5', '4', '6'], select_tolerance=False)
 
-take_then_put(25, 3.5, 54)
-take_then_put(30, 4, 54)
-take_then_put(35, 4, 54)
-take(35, 6)
+
+
+take_then_put(115, 3.5, 0, 54)
+take_then_put(115, 4, 1, 54)
+take_then_put(115, 4, 2, 54)
+take(115, 3, 6)
 
 # Initial step of user setting the desired volune levels
 # Save these as a dict
