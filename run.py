@@ -46,24 +46,28 @@ def take_then_put(distill_temp, distill_volumes, add_volume, iterator, threshold
     print("starting experiment")
     clr.start()
 
-    # Every 45 seconds, pause the experiment, and run liquid_level analysis
+    # Every 50 seconds, pause the experiment, and run liquid_level analysis
     while True:
-        time.sleep(45)
+        time.sleep(50)
         print("pausing stirring")
-        clr.set_stirrer_live(0) # pause stirring
+        clr.set_stirrer_live(80) # slow stirring
         time.sleep(5) # wait a few seconds for liquid level to settle
+        cap = cv2.VideoCapture(RTSP_URL) # open video feed
         print("taking picture")
         _, image = cap.read() # take a picture with the camera
         image = resize(image)
+        cap.release() # close video feed
         print("resuming stirring")
         clr.set_stirrer_live(400) # resume stirring
         print("running analysis")
-        _, percent_diff = liquid_level.run(image=image, volume=str(distill_volumes))  # will return % diff from volume ref line specified
+        _, percent_diff = liquid_level.run(input_image=image, volume=str(distill_volumes))  # will return % diff from volume ref line specified
         if percent_diff < threshold:
             print("percent diff is less than threshold, moving on to adding solvent")
             clr.stop()
-            time.sleep
+            time.sleep(10)
             break # leave the while loop
+        else:
+            print("percent diff is above threshold, continuing with heating")
 
     #  Create and start an iControl experiment that adds solvent
     print("creating experiment to add solvent")
@@ -83,9 +87,9 @@ def take_then_put(distill_temp, distill_volumes, add_volume, iterator, threshold
             print("experiment has ended")
             break
 
-    iterator +=1
 
 def take(distill_temp, distill_volumes, iterator, threshold=0.01):
+    # TODO update to same as take_then_put
     """
     Distill down to a pre-defined number of volumes and then add more solvent.
     Note that liquid level start method should have been called before this method is run.
@@ -105,25 +109,28 @@ def take(distill_temp, distill_volumes, iterator, threshold=0.01):
     clr._add_waiting_step(35000) # wait for a long time - exp should not end
     clr.start()
 
-    # Every 45 seconds, pause the experiment, and run liquid_level analysis
+    # Every 50 seconds, pause the experiment, and run liquid_level analysis
     while True:
-        time.sleep(45)
+        time.sleep(50)
         print("pausing stirring")
-        clr.set_stirrer_live(0) # pause stirring
+        clr.set_stirrer_live(80) # slow stirring
         time.sleep(5) # wait a few seconds for liquid level to settle
+        cap = cv2.VideoCapture(RTSP_URL) # open video feed
         print("taking picture")
         _, image = cap.read() # take a picture with the camera
         image = resize(image)
+        cap.release() # close video feed
         print("resuming stirring")
         clr.set_stirrer_live(400) # resume stirring
         print("running analysis")
-        _, percent_diff = liquid_level.run(image=image, volume=str(distill_volumes))  # will return % diff from volume ref line specified
+        _, percent_diff = liquid_level.run(input_image=image, volume=str(distill_volumes))  # will return % diff from volume ref line specified
         if percent_diff < threshold:
             print("percent diff is less than threshold, stopping experiment")
             clr.stop()
+            time.sleep(10)
             break # leave the while loop
-
-    iterator += 1
+        else:
+            print("percent diff is above threshold, continuing with heating")
 
 
 clr = Optimax(device_name="radleys_clr", port="COMX", connection_mode="serial", address="00", experiment_name="test1")
@@ -132,7 +139,7 @@ clr.simulation = False
 clr._test_exe_path()
 clr.initialize_device()
 
-cap = cv2.VideoCapture("rtsp://admin:Reolink5@10.236.65.56:554/h264Preview_01_main")
+RTSP_URL = "rtsp://admin:Reolink5@10.236.65.56:554/h264Preview_01_main"
 
 tracker = TrackTwoLiquidToleranceLevels()
 liquid_level = LiquidLevel(
@@ -140,7 +147,7 @@ liquid_level = LiquidLevel(
     track_liquid_tolerance_levels=tracker,
     use_tolerance=False,
     use_reference=True,
-    rows_to_count=15,
+    rows_to_count=10,
     number_of_liquid_levels_to_find=1,
     find_meniscus_minimum=0.04,
     no_error=False,
@@ -148,24 +155,19 @@ liquid_level = LiquidLevel(
     )  
 
 # image for initial selection of region of interest
+cap = cv2.VideoCapture(RTSP_URL) # open video feed
+time.sleep(2) # allow camera feed to initialise
 _, image = cap.read() # take a picture with the camera
 image = resize(image)
+cap.release() # close the video feed
 liquid_level.start(image=image, select_region_of_interest=True, set_reference=True, 
     volumes_list = ['3.5', '4', '6'], select_tolerance=False)
 
 
+#take_then_put(95, 3.5, 54, 0)
+#take_then_put(115, 4, 54, 1)
+take_then_put(120, 4, 54, 2)
+#take(115, 6, 3)
 
-take_then_put(115, 3.5, 0, 54)
-take_then_put(115, 4, 1, 54)
-take_then_put(115, 4, 2, 54)
-take(115, 3, 6)
-
-# Initial step of user setting the desired volune levels
-# Save these as a dict
-# User sets order to assess... e.g. first step is wait until at 4 vols
-
-# use experiment pause method to pause, take a pic, analyse, then resume!
-
-# will return % diff from volumes lines at 3.5, 4 and 6 volumes in the order specified in the start method
 
 

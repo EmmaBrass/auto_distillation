@@ -1,26 +1,30 @@
-from pylabware import Optimax
+import cv2
 import time
+import os
 
-clr = Optimax(device_name="radleys_clr", port="COMX", connection_mode="serial", address="00", experiment_name="test1")
-clr.simulation = False
+RTMP_URL = "rtmp://10.236.65.56/bcs/channel1935_main.bcs?channel=1935&stream=0&user=admin&password=Reolink5"
+RTSP_URL = "rtsp://admin:Reolink5@10.236.65.56:554/h264Preview_01_main"
+#os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;udp'
+#cap = cv2.VideoCapture(RTSP_URL)
 
-clr.experiment_name = 'put 54 ml'
-#clr._test_exe_path()
-clr.is_connected()
-#clr.initialize_device()
+def resize(input_image):
+    h, w = input_image.shape[:2]
+    aspect = h/w
+    new_width = 600
+    new_height = int(new_width*aspect)
+    output_image = cv2.resize(input_image, dsize=(new_width,new_height))
+    return output_image
 
-#clr._create_experiment(f"put 54 ml")
-#clr._click_phase_1()
-#clr._add_stirring_step(400,20)
-#clr._add_dosing_step(54)
-#clr._add_end_experiment_step()
-clr.start()
-
-# check if the experiment has ended every 30 sec
+time.sleep(2)
 while True:
-    time.sleep(30)
-    print("checking if experiment has ended")
-    ended = clr.end_of_experiment_check()
-    if ended == True:
-        print("experiment has ended")
-        break
+    cap = cv2.VideoCapture(RTSP_URL)
+    print('waiting 4 sec')
+    time.sleep(4)
+    print("taking picture")
+    ret, frame = cap.read() # take a picture with the camera
+    print(ret)
+    new_image = resize(frame)
+    cv2.imshow("image", new_image)
+    cv2.waitKey(4000)
+    cv2.destroyAllWindows()
+    cap.release()
